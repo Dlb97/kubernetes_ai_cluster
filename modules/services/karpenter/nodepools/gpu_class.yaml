@@ -1,0 +1,25 @@
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: gpu
+spec:
+  role: "KarpenterNodeRole-${CLUSTER_NAME}"
+  amiFamily: Custom
+  amiSelectorTerms:
+    - id: ami-0e92438dc9afbbde5
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${CLUSTER_NAME}
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${CLUSTER_NAME}
+  blockDeviceMappings:
+    - deviceName: /dev/sda1
+      ebs:
+        encrypted: true
+        volumeSize: 400Gi
+        volumeType: gp3
+        deleteOnTermination: true  
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh ${CLUSTER_NAME} --container-runtime containerd
