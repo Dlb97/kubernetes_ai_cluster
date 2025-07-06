@@ -4,14 +4,16 @@ A comprehensive Terraform infrastructure for deploying an Amazon EKS cluster opt
 
 ## 🏗️ Architecture Overview
 
-This project creates a an EKS cluster with the following components:
+This project creates an EKS cluster with the following components:
 
 - **VPC Infrastructure**: Custom VPC with public subnets across multiple availability zones
 - **EKS Cluster**: Kubernetes cluster with managed node groups and launch templates
-- **Karpenter**: Just-in-time node provisioning and autoscaling
+- **Data Management**: S3 buckets, EFS file system, and DataSync for data orchestration
+- **Karpenter**: Just-in-time node provisioning and autoscaling with dynamic GPU node pools
 - **NVIDIA GPU Operator**: Automated GPU driver and container runtime management
 - **KubeRay**: Distributed computing framework for Ray workloads
 - **OIDC Provider**: Secure service account authentication
+- **AWS Auth ConfigMap**: IAM role mapping for EKS node authentication
 
 ## 📁 Project Structure
 
@@ -28,11 +30,13 @@ terraform_eks_ai_cluster/
 └── modules/
     ├── infra/
     │   ├── vpc/              # VPC and networking resources
-    │   └── eks/              # EKS cluster and node groups
+    │   ├── eks/              # EKS cluster and node groups
+    │   └── data/             # Data management (S3, EFS, DataSync)
     └── services/
-        ├── karpenter/        # Karpenter autoscaling
+        ├── aws-auth/            # AWS IAM role mapping for EKS authentication
+        ├── karpenter/           # Karpenter autoscaling with GPU node pools
         ├── nvidia_gpu_operator/ # NVIDIA GPU support
-        └── kuberay/          # KubeRay distributed computing
+        └── kuberay/             # KubeRay distributed computing
 ```
 
 ## 🚀 Features
@@ -45,23 +49,62 @@ terraform_eks_ai_cluster/
 
 > **⚠️ Important Notice**: This configuration uses public subnets for the EKS cluster, which is suitable for development and testing environments but **not recommended for production workloads**. For production environments, consider using private subnets with NAT gateways and the required VPC endpoints for AWS services (EKS, ECR, S3, etc.) to enhance security.
 
+### Dynamic GPU Cluster Management
+The `gpu_clusters` variable enables dynamic creation of both Karpenter node pools and corresponding Ray clusters:
+
+```hcl
+gpu_clusters = [
+  {
+    instance_type     = "g4dn.xlarge"
+    replicas          = 2
+    gpus_per_replica  = 1
+  },
+  {
+    instance_type     = "p4de.24xlarge"
+    replicas          = 1
+    gpus_per_replica  = 8
+  }
+]
+```
+
+**How it works:**
+1. **Karpenter Node Pools**: For each GPU configuration, a Karpenter NodePool is created with:
+   - **Instance Type Label**: `instance_type: ${INSTANCE_TYPE}` for node selection
+   - **Ray Worker Label**: `ray_type: worker` for Ray cluster targeting
+   - **GPU Requirements**: Configured for the specific instance type
+   - **Capacity Types**: Support for both on-demand and spot instances
+
+2. **Ray Clusters**: Corresponding RayCluster resources are created with:
+   - **Worker Replicas**: Controlled by the `replicas` parameter in `gpu_clusters`
+   - **GPU Allocation**: `gpus_per_replica` determines GPU resources per worker
+   - **Node Selection**: Uses `ray_type: worker` and `instance_type: ${INSTANCE_TYPE}` labels
+   - **Persistent Storage**: EFS-backed persistent volumes for data persistence
+
+3. **Automatic Scaling**: 
+   - **Karpenter**: Provisions nodes based on Ray cluster requirements
+   - **Ray Workers**: Scale according to the `replicas` parameter
+   - **Cost Optimization**: Automatic node consolidation and spot instance usage
+
 ### Autoscaling with Karpenter
 - **Just-in-time Provisioning**: Nodes are created only when needed
 - **CPU Node Pool**: On-demand m5.large instances for general workloads
-- **GPU Node Pool**: P4de.24xlarge instances with 8x H100 GPUs for AI/ML
+- **Dynamic GPU Node Pools**: Automatically created based on `gpu_clusters` variable
 - **Spot Instance Support**: Cost optimization for GPU workloads
 - **Consolidation**: Automatic node consolidation for cost efficiency
 
 ### AI/ML Optimizations
 - **NVIDIA GPU Operator**: Automated GPU driver installation and management
 - **Large EBS Volumes**: 400GB GP3 volumes for data storage
-- **KubeRay Integration**: Ready for distributed Ray workloads
+- **KubeRay Integration**: Ready for distributed Ray workloads with persistent storage
+- **Multi-GPU Support**: Configurable GPU allocation per worker node
 
 ### Security & Compliance
 - **OIDC Provider**: Secure service account authentication
 - **IAM Roles**: Least privilege access for all components
-- **Encrypted Storage**: EBS volumes with encryption enabled
+- **AWS Auth ConfigMap**: Maps IAM roles to Kubernetes RBAC for node authentication
+- **Encrypted Storage**: EBS and EFS volumes with encryption enabled
 - **Network Security**: Proper security group configurations
+- **S3 Security**: Public access blocked, server-side encryption
 
 ## 📋 Prerequisites
 
@@ -76,6 +119,8 @@ terraform_eks_ai_cluster/
 - IAM role and policy management
 - EC2 instance and launch template management
 - S3 bucket access for Terraform state
+- EFS file system creation and management
+- DataSync task creation and execution
 
 ## 🔧 Configuration
 
@@ -98,6 +143,20 @@ node_group_desired_size = 2
 node_group_max_size = 4
 node_group_min_size = 0
 node_group_instance_types = ["m5.large"]
+
+# GPU Cluster Configuration
+gpu_clusters = [
+  {
+    instance_type     = "g4dn.xlarge"
+    replicas          = 2
+    gpus_per_replica  = 1
+  },
+  {
+    instance_type     = "p4de.24xlarge"
+    replicas          = 3
+    gpus_per_replica  = 8
+  }
+]
 ```
 
 ### Backend Configuration
@@ -150,12 +209,13 @@ aws eks update-kubeconfig --region us-east-1 --name eks-ai-cluster
 - **Storage**: 400GB GP3 EBS
 - **Purpose**: General workloads, Ray head nodes
 
-### GPU Node Pool
-- **Instance Type**: p4de.24xlarge
+### Dynamic GPU Node Pools
+- **Instance Types**: Configurable via `gpu_clusters` variable
 - **Capacity Type**: On-demand and Spot
-- **GPUs**: 8x NVIDIA H100
+- **GPUs**: Configurable via `gpus_per_replica` parameter
 - **Storage**: 400GB GP3 EBS
 - **Purpose**: AI/ML workloads, GPU-intensive tasks
+- **Auto-scaling**: Based on Ray cluster requirements
 
 ## 🔍 Monitoring and Management
 
@@ -175,7 +235,7 @@ kubectl get nodes -l nvidia.com/gpu.present=true
 ```
 
 ### KubeRay Status
-Monitor KubeRay operator:
+Monitor KubeRay operator and clusters:
 ```bash
 kubectl get pods -n kuberay-operator
 ```
@@ -188,7 +248,7 @@ To destroy the infrastructure:
 terraform destroy -var-file=envs/main/main.tfvars
 ```
 
-**⚠️ Warning**: This will delete all resources including the EKS cluster, VPC, and all associated resources.
+**⚠️ Warning**: This will delete all resources including the EKS cluster, VPC, S3 buckets, EFS file system, and all associated resources.
 
 ## 🔧 Troubleshooting
 
@@ -197,6 +257,8 @@ terraform destroy -var-file=envs/main/main.tfvars
 1. **Karpenter Pods Crashing**: Check OIDC provider configuration and IAM roles
 2. **GPU Nodes Not Joining**: Verify GPU AMI and NVIDIA GPU operator installation
 3. **Node Autoscaling Issues**: Check Karpenter logs and IAM permissions
+4. **Ray Cluster Issues**: Verify node selectors and GPU resource allocation
+5. **DataSync Failures**: Check IAM permissions and network connectivity
 
 ### Useful Commands
 
@@ -215,6 +277,12 @@ nvidia-smi # On GPU nodes
 
 # Check KubeRay
 kubectl get pods -n kuberay-operator
+kubectl get rayclusters
+kubectl describe raycluster <cluster-name>
+
+# Check data infrastructure
+kubectl get pv
+kubectl get pvc
 ```
 
 ## 📝 Contributing

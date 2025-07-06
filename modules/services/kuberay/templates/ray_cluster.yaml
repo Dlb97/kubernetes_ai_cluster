@@ -1,0 +1,84 @@
+---
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  labels:
+    app.kubernetes.io/instance: raycluster
+  name: ${CLUSTER_NAME}
+spec:
+  headGroupSpec:
+    serviceType: ClusterIP
+    rayStartParams: {}
+    template:
+      spec:
+        serviceAccountName: ${PROJECT_NAME}
+        imagePullSecrets: []
+        containers:
+          - volumeMounts:
+            - mountPath: /tmp/ray
+              name: log-volume
+            - name: ray-cluster-volume
+              mountPath: /data
+            name: ray-head
+            image: rayproject/ray:2.44.1
+            imagePullPolicy: Always
+            resources:
+              limits:
+                nvidia.com/gpu: 0
+              requests:
+                nvidia.com/gpu: 0
+            securityContext: {}
+        volumes:
+          - emptyDir: {}
+            name: log-volume
+          - name: ray-cluster-volume
+            persistentVolumeClaim:
+              claimName: ray-pvc-${PROJECT_NAME}
+        affinity: {}
+        tolerations: []
+        nodeSelector:
+          ray_type: "head"
+      metadata:
+        annotations: {}
+        labels: 
+          app.kubernetes.io/instance: raycluster
+  workerGroupSpecs:
+  - rayStartParams: {}
+    replicas: ${REPLICAS}
+    minReplicas: 0
+    maxReplicas: 10
+    groupName: workergroup
+    template:
+      spec:
+        serviceAccountName: ${PROJECT_NAME}
+        imagePullSecrets: []
+        containers:
+          - volumeMounts:
+            - mountPath: /tmp/ray
+              name: log-volume
+            - name: ray-cluster-volume
+              mountPath: /data
+            name: ray-worker
+            image: rayproject/ray:2.44.1
+            imagePullPolicy: Always
+            resources:
+              limits:
+                nvidia.com/gpu: ${GPUs}
+              requests:
+                nvidia.com/gpu: ${GPUs}
+            securityContext: {}
+        volumes:
+          - emptyDir: {}
+            name: log-volume
+          - name: ray-cluster-volume
+            persistentVolumeClaim:
+              claimName: ray-pvc-${PROJECT_NAME}
+        affinity: {}
+        tolerations: []
+        nodeSelector:
+          ray_type: "worker"
+          instance_type: ${INSTANCE_TYPE}
+      metadata:
+        annotations: {}
+        labels: 
+          app.kubernetes.io/instance: raycluster

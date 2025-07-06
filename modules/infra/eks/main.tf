@@ -209,6 +209,7 @@ resource "aws_launch_template" "eks_nodes" {
     cluster_name           = var.cluster_name
     cluster_endpoint       = aws_eks_cluster.main.endpoint
     cluster_ca_certificate = aws_eks_cluster.main.certificate_authority[0].data
+    vpc_cidr               = var.vpc_cidr
   }))
 
   metadata_options {
@@ -240,6 +241,7 @@ resource "aws_launch_template" "eks_nodes" {
   }
 }
 
+
 # Data source for EKS optimized AMI
 data "aws_ami" "eks_optimized" {
   most_recent = true
@@ -247,7 +249,7 @@ data "aws_ami" "eks_optimized" {
 
   filter {
     name   = "name"
-    values = ["amazon-eks-node-${var.kubernetes_version}-v*"]
+    values = ["amazon-eks-node-al2023-x86_64-standard-${var.kubernetes_version}-v20250419"]
   }
 
   filter {

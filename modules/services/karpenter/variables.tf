@@ -19,3 +19,26 @@ variable "karpenter_namespace" {
   type        = string
   default     = "kube-system"
 }
+
+variable "gpu_clusters" {
+  type = list(object({
+    instance_type    = string
+    replicas         = number
+    gpus_per_replica = number
+  }))
+}
+
+variable "cluster_endpoint" {
+  description = "EKS cluster API server endpoint"
+  type        = string
+}
+
+variable "cluster_ca_certificate" {
+  description = "EKS cluster CA certificate"
+  type        = string
+}
+
+variable "vpc_cidr" {
+  description = "VPC CIDR block"
+  type        = string
+}

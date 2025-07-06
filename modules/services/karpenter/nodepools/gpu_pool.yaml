@@ -1,11 +1,13 @@
 apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
-  name: gpu
-  labels:
-    "gpu": "true"
+  name: gpu-${POOL_NAME}
 spec:
   template:
+    metadata:
+      labels:
+        ray_type: worker
+        instance_type: ${INSTANCE_TYPE}
     spec:
       requirements:
         - key: kubernetes.io/arch
@@ -19,7 +21,7 @@ spec:
           values: ["on-demand", "spot"]
         - key: node.kubernetes.io/instance-type
           operator: In
-          values: ["p4de.24xlarge"]
+          values: ["${INSTANCE_TYPE}"]
       nodeClassRef:
         group: karpenter.k8s.aws
         kind: EC2NodeClass

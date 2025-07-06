@@ -6,7 +6,7 @@ spec:
   role: "KarpenterNodeRole-${CLUSTER_NAME}"
   amiFamily: Custom
   amiSelectorTerms:
-    - id: ami-0e92438dc9afbbde5
+    - id: ${AMI_ID}
   subnetSelectorTerms:
     - tags:
         karpenter.sh/discovery: ${CLUSTER_NAME}
@@ -19,7 +19,17 @@ spec:
         encrypted: true
         volumeSize: 400Gi
         volumeType: gp3
-        deleteOnTermination: true  
+        deleteOnTermination: true
   userData: |
     #!/bin/bash
-    /etc/eks/bootstrap.sh ${CLUSTER_NAME} --container-runtime containerd
+    set -o xtrace
+
+    # Install required packages for Ubuntu
+    apt-get update
+    apt-get install -y amazon-efs-utils
+
+    # Configure kubelet for EKS
+    /etc/eks/bootstrap.sh ${CLUSTER_NAME} \
+      --kubelet-extra-args '--node-labels=ray_type=worker' \
+      --apiserver-endpoint ${CLUSTER_ENDPOINT} \
+      --b64-cluster-ca ${CLUSTER_CA_CERTIFICATE}

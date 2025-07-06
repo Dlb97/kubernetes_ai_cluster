@@ -21,3 +21,17 @@ common_tags = {
   Project     = "eks-ai-cluster"
   Owner       = "terraform"
 }
+
+# GPU Cluster config. More info on instance types at (https://docs.aws.amazon.com/dlami/latest/devguide/gpu.html)
+gpu_clusters = [
+  {
+    instance_type    = "p4de.24xlarge"
+    replicas         = 1
+    gpus_per_replica = 8
+  },
+  {
+    instance_type    = "g6e.12xlarge"
+    replicas         = 0
+    gpus_per_replica = 4
+  },
+]

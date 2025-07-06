@@ -1,18 +1,20 @@
-#!/bin/bash
-set -o xtrace
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="//"
 
-# Install required packages
-yum install -y amazon-efs-utils
+--//
+Content-Type: application/node.eks.aws
 
-# Configure kubelet
-/etc/eks/bootstrap.sh ${cluster_name} \
-  --kubelet-extra-args '--node-labels=ray_type=head' \
-  --apiserver-endpoint ${cluster_endpoint} \
-  --b64-cluster-ca ${cluster_ca_certificate}
+---
+apiVersion: node.eks.aws/v1alpha1
+kind: NodeConfig
+spec:
+  cluster:
+    apiServerEndpoint: ${cluster_endpoint}
+    certificateAuthority: ${cluster_ca_certificate}
+    cidr: 172.20.0.0/16
+    name: ${cluster_name}
+  kubelet:
+    flags:
+    - "--node-labels=ray-type=head"
 
-# Configure kubelet to use IMDSv2
-TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-curl -H "X-aws-ec2-metadata-token: $TOKEN" -v http://169.254.169.254/latest/meta-data/
-
-# Restart kubelet to apply changes
-systemctl restart kubelet 
+--//--

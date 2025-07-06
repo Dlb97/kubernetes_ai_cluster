@@ -39,7 +39,7 @@ variable "cluster_name" {
 variable "kubernetes_version" {
   description = "Kubernetes version for the EKS cluster"
   type        = string
-  default     = "1.29"
+  default     = "1.32"
 }
 
 variable "node_group_desired_size" {
@@ -64,4 +64,17 @@ variable "node_group_instance_types" {
   description = "List of instance types for the node group"
   type        = list(string)
   default     = ["m5.large"]
+}
+
+#####################################
+### Karpenter and Kuberay modules ###
+#####################################
+
+variable "gpu_clusters" {
+
+  type = list(object({
+    instance_type    = string
+    replicas         = number
+    gpus_per_replica = number
+  }))
 }

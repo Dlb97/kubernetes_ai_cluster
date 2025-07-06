@@ -374,6 +374,7 @@ resource "null_resource" "install_karpenter" {
       export KARPENTER_VERSION="${var.karpenter_version}"
       export KARPENTER_NAMESPACE="${var.karpenter_namespace}"
       export CLUSTER_NAME="${var.cluster_name}"
+      export AWS_REGION="${data.aws_region.current.id}"
       export KARPENTER_IAM_ROLE_ARN="${aws_iam_role.karpenter_controller_role.arn}"
       ${path.module}/install_helm_chart.sh
     EOT
@@ -395,7 +396,10 @@ resource "kubectl_manifest" "cpu_class" {
   yaml_body = templatefile(
     "${path.module}/nodepools/cpu_class.yaml",
     {
-      CLUSTER_NAME = var.cluster_name
+      CLUSTER_NAME           = var.cluster_name,
+      CLUSTER_ENDPOINT       = var.cluster_endpoint,
+      CLUSTER_CA_CERTIFICATE = var.cluster_ca_certificate,
+      VPC_CIDR               = var.vpc_cidr
     }
   )
 
@@ -415,7 +419,25 @@ resource "kubectl_manifest" "gpu_class" {
   yaml_body = templatefile(
     "${path.module}/nodepools/gpu_class.yaml",
     {
-      CLUSTER_NAME = var.cluster_name
+      CLUSTER_NAME           = var.cluster_name,
+      CLUSTER_ENDPOINT       = var.cluster_endpoint,
+      CLUSTER_CA_CERTIFICATE = var.cluster_ca_certificate,
+      VPC_CIDR               = var.vpc_cidr
+      AMI_ID                 = data.aws_ami.gpu_ami.id
+    }
+  )
+
+  depends_on = [null_resource.install_karpenter]
+}
+
+resource "kubectl_manifest" "gpu_node_pool" {
+  for_each = { for idx, cluster in var.gpu_clusters : cluster.instance_type => cluster }
+
+  yaml_body = templatefile(
+    "${path.module}/nodepools/gpu_pool.yaml",
+    {
+      INSTANCE_TYPE = each.key,
+      POOL_NAME     = replace(each.key, ".", "-")
     }
   )
 
@@ -424,11 +446,17 @@ resource "kubectl_manifest" "gpu_class" {
 
 
 
-resource "kubectl_manifest" "gpu_node_pool" {
-  yaml_body = templatefile(
-    "${path.module}/nodepools/gpu_pool.yaml",
-    {}
-  )
+data "aws_ami" "gpu_ami" {
+  most_recent = true
+  owners      = ["amazon"]
 
-  depends_on = [null_resource.install_karpenter]
+  filter {
+    name   = "name"
+    values = ["ubuntu-eks/k8s_1.32/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
 }
