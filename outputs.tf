@@ -31,16 +31,6 @@ output "s3_bucket_arns" {
   value       = module.data.s3_bucket_arns
 }
 
-output "datasync_bucket_name" {
-  description = "Name of the S3 bucket for DataSync"
-  value       = module.data.datasync_bucket_name
-}
-
-output "datasync_bucket_arn" {
-  description = "ARN of the S3 bucket for DataSync"
-  value       = module.data.datasync_bucket_arn
-}
-
 output "experiment_results_bucket_name" {
   description = "Name of the experiment results S3 bucket"
   value       = module.data.experiment_results_bucket_name

@@ -12,16 +12,6 @@ output "s3_bucket_arns" {
   }
 }
 
-output "datasync_bucket_name" {
-  description = "Name of the DataSync S3 bucket"
-  value       = aws_s3_bucket.buckets["datasync"].bucket
-}
-
-output "datasync_bucket_arn" {
-  description = "ARN of the DataSync S3 bucket"
-  value       = aws_s3_bucket.buckets["datasync"].arn
-}
-
 output "experiment_results_bucket_name" {
   description = "Name of the experiment results S3 bucket"
   value       = aws_s3_bucket.buckets["experiment_results"].bucket
