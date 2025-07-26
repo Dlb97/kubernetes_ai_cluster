@@ -1,7 +1,6 @@
 # Local variable for bucket configurations
 locals {
   s3_buckets = {
-    datasync           = "${var.project_name}-datasync-bucket-${data.aws_caller_identity.current.account_id}"
     experiment_results = "${var.project_name}-experiment-results-bucket-${data.aws_caller_identity.current.account_id}"
   }
 }

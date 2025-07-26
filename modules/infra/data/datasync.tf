@@ -59,8 +59,8 @@ resource "aws_iam_role_policy" "datasync_s3_policy" {
           "s3:PutObjectTagging"
         ]
         Resource = [
-          aws_s3_bucket.buckets["datasync"].arn,
-          "${aws_s3_bucket.buckets["datasync"].arn}/*"
+          aws_s3_bucket.buckets["experiment_results"].arn,
+          "${aws_s3_bucket.buckets["experiment_results"].arn}/*"
         ]
       }
     ]
@@ -122,7 +122,7 @@ resource "aws_iam_role_policy" "datasync_cloudwatch_policy" {
 
 # DataSync S3 Location
 resource "aws_datasync_location_s3" "datasync_s3_location" {
-  s3_bucket_arn = aws_s3_bucket.buckets["datasync"].arn
+  s3_bucket_arn = aws_s3_bucket.buckets["experiment_results"].arn
   subdirectory  = "/"
 
   s3_config {
